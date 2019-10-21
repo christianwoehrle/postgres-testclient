@@ -77,7 +77,7 @@ fi
 
 echo "expected number of rows found at ${URL_REPLICA}"
 
-psql -h ${URL_REPLICA} -U ${USERNAME} -qat -c "delete from posts where id!=1;" 
+psql -h ${URL_REPLICA} -U ${USERNAME} -c "delete from posts where id!=1;" 
 
 if [ $? == 0 ]
 then
@@ -87,7 +87,7 @@ fi
 
 echo "no insert possible in read replica at ${URL_REPLICA}  --> that's correct"
 
-psql -h ${URL_MASTER} -U ${USERNAME} -qat -c "delete from posts where id!=1;" 
+psql -h ${URL_MASTER} -U ${USERNAME} -c "delete from posts where id!=1;" 
 
 if [ $? != 0 ]
 then
@@ -97,7 +97,15 @@ fi
 
 echo "deleted rows in ${URL_MASTER} "
 
-psql -h ${URL_MASTER} -U ${USERNAME} -qat -c "drop database test" 
+psql -h ${URL_MASTER} -U ${USERNAME} -c "drop table posts" 
+
+if [ $? != 0 ]
+then
+        echo "Error dropping table on the master"
+        exit 1
+fi
+
+psql -h ${URL_MASTER} -U ${USERNAME} -c "drop database test" 
 
 if [ $? != 0 ]
 then
