@@ -1,5 +1,6 @@
 #!/bin/sh
 
+echo "test postgres master and replica with URLs ${URL_MASTER} and ${URL_REPLICA}"
 
 psql -h ${URL_MASTER} -U ${USERNAME} -c "create database test;"
 if [ $? != 0 ]  
@@ -7,6 +8,8 @@ then
 	echo "Error creating database test"
 	exit 1
 fi
+
+echo "database created at ${URL_MASTER}"
 
 psql -h ${URL_MASTER} -U ${USERNAME} -c "create table posts (
 id integer,
@@ -23,6 +26,7 @@ then
 	exit 1
 fi
 
+echo "table created at ${URL_MASTER}"
 
 psql -h ${URL_MASTER} -U ${USERNAME} -c "
 insert into posts (id, title, content, published_at, type) values
@@ -37,6 +41,7 @@ then
 	exit 1
 fi
 
+echo "rows inserted at ${URL_MASTER}"
 
 RES=$(psql -h ${URL_MASTER} -U ${USERNAME} -qat -c "select * from posts;" | wc -l)
 
@@ -46,11 +51,15 @@ then
 	exit 1
 fi
 
+echo "rows found at ${URL_MASTER}"
+
 if [ $RES != 4 ]  
 then
 	echo "Expected 4 Rows, got $RES"
 	exit 1
 fi
+
+echo "expected number of rows found at ${URL_MASTER}"
 
 RES=$(psql -h ${URL_REPLICA} -U ${USERNAME} -qat -c "select * from posts;" | wc -l)
 
@@ -66,6 +75,8 @@ then
 	exit 1
 fi
 
+echo "expected number of rows found at ${URL_REPLICA}"
+
 psql -h ${URL_REPLICA} -U ${USERNAME} -qat -c "delete from posts where id!=1;" 
 
 if [ $? == 0 ]
@@ -74,6 +85,7 @@ then
         exit 1
 fi
 
+echo "no insert possible in read replica at ${URL_REPLICA}  --> that's correct"
 
 psql -h ${URL_MASTER} -U ${USERNAME} -qat -c "delete from posts where id!=1;" 
 
@@ -83,6 +95,8 @@ then
         exit 1
 fi
 
+echo "deleted rows in ${URL_MASTER} "
+
 psql -h ${URL_MASTER} -U ${USERNAME} -qat -c "drop database test" 
 
 if [ $? != 0 ]
@@ -91,5 +105,6 @@ then
         exit 1
 fi
 
+echo "success"
 
 exit 0
