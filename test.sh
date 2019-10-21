@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 
 psql -h ${URL_MASTER} -U ${USERNAME} -c "create database test;"
