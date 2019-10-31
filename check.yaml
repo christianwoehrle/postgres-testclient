@@ -1,0 +1,10 @@
+---
+datasources:
+- name: Loki
+  type: Loki
+  tests:
+    - proxyQuery: "direction=BACKWARD&limit=1&regexp=&query=%7Bapp%3D%22loki%22%7D"
+- name: Prometheus
+  type: Prometheus
+  tests:
+    - proxyQuery: "query=up{endpoint=\"http-metrics\",instance=\"172.16.248.180:9153\",job=\"coredns\",namespace=\"kube-system\",pod=\"coredns-759d6fc95f-6xq94\",service=\"prometheus-operator-coredns\"}"
