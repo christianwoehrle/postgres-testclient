@@ -4,6 +4,8 @@ import (
 	"strings"
 )
 
+// taken from here: https://github.com/grafana/grafana/tree/master/pkg/api/dtos
+
 type DataSourceID struct {
 	Id int64 `json:"id"`
 }
