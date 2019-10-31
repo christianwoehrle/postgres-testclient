@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/christianwoehrle/prometheus-testclient/dtos"
+	"github.com/christianwoehrle/prometheus-testclient/prometheus_cw"
+
+	"github.com/christianwoehrle/prometheus-testclient/grafana_dtos_cw"
 	yaml2 "gopkg.in/yaml.v2"
 )
 
@@ -71,8 +73,8 @@ func Query(user string, pass string, addr string, path string, rawQuery string) 
 			log.Fatal(err)
 			return nil, err
 		}
-		bodyString := string(bodyBytes)
-		fmt.Println(bodyString)
+		//bodyString := string(bodyBytes)
+		//fmt.Println(bodyString)
 		return bodyBytes, nil
 
 	}
@@ -86,7 +88,7 @@ func main() {
 	yamlFile, err := ioutil.ReadFile(filename)
 
 	if err != nil {
-		fmt.Println("Fail1")
+		fmt.Println("Failed to read config-file")
 		panic(err)
 	}
 
@@ -99,24 +101,32 @@ func main() {
 
 	user := "admin"
 	passwd := "admin"
+	grafanaAdress := "localhost:8080"
 
-	res, err := Query(user, passwd, "localhost:8080", "/api/datasources", "")
+	res, err := Query(user, passwd, grafanaAdress, "/api/datasources", "")
 
-	var datasourcelist dtos.DataSourceList
+	var datasourcelist grafana_dtos_cw.DataSourceList
 	err = json.Unmarshal(res, &datasourcelist)
 
 	for i, _ := range datasourceSpecs.Datasource {
-		fmt.Println("=================================================================================")
-		res, err = Query(user, passwd, "localhost:8080", "/api/datasources/id/"+datasourceSpecs.Datasource[i].Name, "")
-		var datasourceId dtos.DataSourceID
+		res, err = Query(user, passwd, grafanaAdress, "/api/datasources/id/"+datasourceSpecs.Datasource[i].Name, "")
+		if err != nil {
+			fmt.Println("Fail: datasource " + datasourceSpecs.Datasource[i].Name + " not found")
+		}
+		var datasourceId grafana_dtos_cw.DataSourceID
 		err = json.Unmarshal(res, &datasourceId)
+		if err != nil {
+			fmt.Println("Fail: datasourceid " + datasourceSpecs.Datasource[i].Name + " not found")
+		}
 		datasourceSpecs.Datasource[i].Id = datasourceId.Id
-
+		fmt.Println("Found datasource in Grafana:" + datasourceSpecs.Datasource[i].Name)
 	}
 
-	res, err = Query(user, passwd, "localhost:8080", "/api/health", "")
+	res, err = Query(user, passwd, grafanaAdress, "/api/health", "")
 	var health map[string]interface{}
 	err = json.Unmarshal(res, &health)
+	fmt.Println("Check /api/health, database:" + health["database"].(string))
+
 	/*
 		{
 			"commit": "67bad72",
@@ -124,11 +134,9 @@ func main() {
 			"version": "6.3.5"
 		}
 	*/
-	fmt.Println(health["database"])
 
 	for _, datasource := range datasourceSpecs.Datasource {
-		fmt.Println("=================================================================================", datasource)
-t		for _, test := range datasource.Tests {
+		for _, test := range datasource.Tests {
 			if datasource.Id == 0 {
 				fmt.Println("No ID for Datasource <" + datasource.Name + ">, Skip Queries")
 			} else {
@@ -136,91 +144,43 @@ t		for _, test := range datasource.Tests {
 				if datasource.Type == "Prometheus" {
 					path := "/api/datasources/proxy/" + strconv.Itoa(int(datasource.Id)) + PROM_QUERYPATH
 
-					res, err = Query(user, passwd, "localhost:8080", path, test.ProxyQuery)
-					fmt.Println(err, string(res))
+					res, err = Query(user, passwd, grafanaAdress, path, test.ProxyQuery)
+					var promApiResponse prometheus_cw.ApiResponse
+					err = json.Unmarshal(res, &promApiResponse)
 
+					//fmt.Println(err, string(res), promApiResponse)
+					if err != nil {
+						fmt.Println("Query failed: " + datasource.Name + " --> " + test.ProxyQuery + " --> " + err.Error())
+					} else {
+
+						if promApiResponse.Status == "success" {
+							fmt.Println("Query ok: " + datasource.Name + " --> " + test.ProxyQuery)
+						} else {
+							fmt.Println("Query failed: " + datasource.Name + " --> " + test.ProxyQuery + " --> " + promApiResponse.Status)
+						}
+					}
 				}
+
 				if datasource.Type == "Loki" {
 					path := "/api/datasources/proxy/" + strconv.Itoa(int(datasource.Id)) + LOKI_QUERYPATH
 
-					res, err = Query(user, passwd, "localhost:8080", path, test.ProxyQuery)
-					fmt.Println(err, string(res))
+					res, err = Query(user, passwd, grafanaAdress, path, test.ProxyQuery)
+					var lokiResponse map[string]interface{}
+					err = json.Unmarshal(res, &lokiResponse)
+
+					if err != nil {
+						fmt.Println("Query failed: " + datasource.Name + " --> " + test.ProxyQuery + " --> " + err.Error())
+					} else {
+						if lokiResponse["streams"] != nil {
+							fmt.Println("Query ok: " + datasource.Name + " --> " + test.ProxyQuery)
+						} else {
+							fmt.Println("Query failed, keine Daten: " + datasource.Name + " --> " + test.ProxyQuery)
+						}
+					}
 
 				}
 			}
 		}
-		//TODO Execute Queries
 	}
-
-	res, err = Query(user, passwd, "localhost:8080", "/api/datasources/proxy/1/api/v1/query", "query=up{endpoint=\"http-metrics\",instance=\"172.16.248.180:9153\",job=\"coredns\",namespace=\"kube-system\",pod=\"coredns-759d6fc95f-6xq94\",service=\"prometheus-operator-coredns\"}")
-	fmt.Println(err)
-	var up map[string]interface{}
-	err = json.Unmarshal(res, &up)
-	/*
-		{
-			"status": "success",
-			"data": {
-			"resultType": "vector",
-				"result": [
-			{
-				"metric": {
-					"__name__": "up",
-					"app": "kube-eagle",
-					"instance": "172.16.249.70:8080",
-					"job": "kube-eagle",
-					"namespace": "monitoring",
-					"pod_name": "kube-eagle-6fc6fc7ccf-fhjbf",
-					"pod_template_hash": "6fc6fc7ccf",
-					"release": "kube-eagle"
-				},
-				"value": [
-					1572449287.973,
-				"1"
-			]
-			},
-	*/
-
-	fmt.Println(up["status"])
-	if up["status"] == "success" {
-		data := up["data"].(map[string]interface{})
-		metrics := data["result"].([]interface{})
-		fmt.Println(metrics)
-		fmt.Printf("%T", metrics)
-
-		for _, result := range metrics {
-			fmt.Println(result)
-			fmt.Printf("%T", result)
-			r := result.(map[string]interface{})
-			m := r["metric"]
-			v := r["value"]
-			fmt.Println(m)
-			fmt.Println(v)
-
-		}
-
-	}
-	fmt.Println(up)
-
-	fmt.Println("=================================================================================")
-	res, err = Query(user, passwd, "localhost:8080", "/api/datasources/proxy/2/api/prom/query", "direction=BACKWARD&limit=1&regexp=&query=%7Bapp%3D%22loki%22%7D")
-	fmt.Println(err)
-	var loki interface{}
-	err = json.Unmarshal(res, &loki)
-	/*
-		{
-		  "streams": [
-		    {
-		      "labels": "{app=\"loki\", container_name=\"loki\", controller_revision_hash=\"monitoring-loki-54b6787bc4\", filename=\"/var/log/pods/monitoring_monitoring-loki-0_2a93dc3f-fb33-11e9-83c7-022514470a34/loki/0.log\", instance=\"monitoring-loki-0\", job=\"monitoring/loki\", name=\"loki\", namespace=\"monitoring\", release=\"monitoring\", statefulset_kubernetes_io_pod_name=\"monitoring-loki-0\", stream=\"stderr\"}",
-		      "entries": [
-		        {
-		          "ts": "2019-10-30T17:06:49.575248313Z",
-		          "line": "level=info ts=2019-10-30T17:06:49.575114026Z caller=table_manager.go:349 msg=\"creating table\" table=index_2595\n"
-		        }
-		      ]
-		    }
-		  ]
-		}
-	*/
-	fmt.Println(loki)
 
 }

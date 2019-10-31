@@ -17,7 +17,7 @@ func Test_ParseDatasource(t *testing.T) {
 - name: Prometheus
   type: Prometheus
   tests:
-    - proxyQuery: "query=up{endpoint=\"http-metrics\",instance=\"172.16.248.180:9153\",job=\"coredns\",namespace=\"kube-system\",pod=\"coredns-759d6fc95f-6xq94\",service=\"prometheus-operator-coredns\"}"
+    - proxyQuery: "query=up{endpoint=\"http-metrics\",instance=\"172.16.248.180:9153\",job=\"coredns\",namespace=\"kube-system\",pod=\"coredns-759d6fc95f-6xq94\",service=\"prometheus_cw-operator-coredns\"}"
 `)
 
 	datasources := Datasources{
@@ -38,7 +38,7 @@ func Test_ParseDatasource(t *testing.T) {
 
 				Tests: []Test{
 					{
-						ProxyQuery: "query=up{endpoint=\"http-metrics\",instance=\"172.16.248.180:9153\",job=\"coredns\",namespace=\"kube-system\",pod=\"coredns-759d6fc95f-6xq94\",service=\"prometheus-operator-coredns\"}",
+						ProxyQuery: "query=up{endpoint=\"http-metrics\",instance=\"172.16.248.180:9153\",job=\"coredns\",namespace=\"kube-system\",pod=\"coredns-759d6fc95f-6xq94\",service=\"prometheus_cw-operator-coredns\"}",
 					},
 				},
 			},

@@ -1,4 +1,4 @@
-package dtos
+package grafana_dtos_cw
 
 import (
 	"strings"
